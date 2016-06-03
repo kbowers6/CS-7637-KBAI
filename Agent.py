@@ -42,13 +42,14 @@ class Agent:
         return similarityPercentage
 
     # Opens Image with blurred inverted b/w. Objects in image are in white, background in black.
-    def OpenImage(self, problem, imageName):
+    def OpenImage(self, problem, imageName, blurred= True):
         image = Image.open(problem.figures[imageName].visualFilename).convert('L')
         image = PIL.ImageOps.invert(image) # invert so background is black, objects are white
 
         # Blur image a little bit
-        gaussFilter = ImageFilter.GaussianBlur(radius=1)
-        image = image.filter(gaussFilter)
+        if blurred:
+            gaussFilter = ImageFilter.GaussianBlur(radius=1)
+            image = image.filter(gaussFilter)
 
         return image
 
@@ -91,7 +92,7 @@ class Agent:
         counter = 1
         # Loop all the MC answers and pick the most confident
         for imageName in self.MCimageNames:
-            image = self.OpenImage(problem, imageName)
+            image = self.OpenImage(problem, imageName, False)
 
             npImage = np.matrix(image).astype(float)
             sumPixelsImage = (npImage > 250).sum() # sums all the whitish pixels
@@ -202,7 +203,7 @@ class Agent:
     # Tests for new or removed objects as the transform
     # confidence returned is the diff of white pixels, NOT normalized!!
     def FillTest(self, problem, problemImages, showImage):
-        fillthreshold = 200
+        fillthreshold = 500
         print 'fill...'
         A = problemImages[0]
         B = problemImages[1]
@@ -212,9 +213,9 @@ class Agent:
         npA = np.matrix(A).astype(float)
         npB = np.matrix(B).astype(float)
         npC = np.matrix(C).astype(float)
-        sumPixelsA = (npA > 200).sum() # sums all the whitish pixels
-        sumPixelsB = (npB > 200).sum() # sums all the whitish pixels
-        sumPixelsC = (npC > 200).sum() # sums all the whitish pixels
+        sumPixelsA = (npA > 180).sum() # sums all the whitish pixels
+        sumPixelsB = (npB > 180).sum() # sums all the whitish pixels
+        sumPixelsC = (npC > 180).sum() # sums all the whitish pixels
 
         # To detect if an image fills an object, treat the previous sum of white pixels as a circumference of a circle
         # Then solve for the radius and find the area, i.e. how many pixels are needed to fill the object
@@ -266,15 +267,21 @@ class Agent:
         imgB = self.OpenImage(problem,'B')
         imgC = self.OpenImage(problem,'C')
 
-        problemImages = [imgA, imgB, imgC]
+        problemImagesBlurred = [imgA, imgB, imgC]
+
+        imgARaw = self.OpenImage(problem,'A', False)
+        imgBRaw = self.OpenImage(problem,'B', False)
+        imgCRaw = self.OpenImage(problem,'C', False)
+
+        problemImagesRaw = [imgARaw, imgBRaw, imgCRaw]
 
         ### Run Test Suite
 
         # Result is tuple of confidence (float) and answer (int)
-        resultMirror = self.MirrorTest(problem, problemImages, False)
-        resultFlip = self.FlipTest(problem, problemImages, False)
-        resultBoolean = self.BooleanTest(problem, problemImages, False)
-        resultFill = self.FillTest(problem, problemImages, False)
+        resultMirror = self.MirrorTest(problem, problemImagesBlurred, False)
+        resultFlip = self.FlipTest(problem, problemImagesBlurred, False)
+        resultBoolean = self.BooleanTest(problem, problemImagesBlurred, False)
+        resultFill = self.FillTest(problem, problemImagesRaw, False)
 
         # Set Add/remove Object as best choice
         bestRelationshipConfidence = resultBoolean[0]
@@ -283,23 +290,23 @@ class Agent:
         chosenTransform = 'boolean'
 
         # Set Mirror as best choice
-        if resultMirror[0] > bestRelationshipConfidence:
+        if resultMirror[0] >= bestRelationshipConfidence and resultMirror[1][0] >= bestAnswerConfidence:
             bestRelationshipConfidence = resultMirror[0]
             bestAnswerConfidence = resultMirror[1][0]
             bestAnswer = resultMirror[1][1]
             chosenTransform = 'mirroring'
 
         # Set Flip as best choice
-        if resultFlip[0] > bestRelationshipConfidence:
+        if resultFlip[0] >= bestRelationshipConfidence and resultFlip[1][0] >= bestAnswerConfidence:
             bestRelationshipConfidence = resultFlip[0]
             bestAnswerConfidence = resultFlip[1][0]
             bestAnswer = resultFlip[1][1]
             chosenTransform = 'flipping'
 
         # Set Fill as best choice
-        if resultFill[0] > bestRelationshipConfidence:
+        if resultFill[0] >= bestRelationshipConfidence and resultFill[1][0] >= bestAnswerConfidence:
             bestRelationshipConfidence = resultFill[0]
-            bestConfidence = resultFill[1][0]
+            bestAnswerConfidence = resultFill[1][0]
             bestAnswer = resultFill[1][1]
             chosenTransform = 'filling'
 
