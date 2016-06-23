@@ -201,7 +201,7 @@ class Agent:
             return (resultAtoC[0], resultAtoC)
 
     # Tests for new or removed objects as the transform
-    # confidence returned is the diff of white pixels, NOT normalized!!
+    # if good enough match, confidence is set to maximum
     def FillTest(self, problem, problemImages, showImage):
         fillthreshold = 500
         print 'fill...'
@@ -258,57 +258,87 @@ class Agent:
     # Returning your answer as a string may cause your program to crash.
 
     # problem input is a RavensProblem object.
-    # problem.figures is dictionary of the question. "A" -> "F" for question, "1" -> "6" for answer
+    # problem.figures is dictionary of the question. "A" -> "C" for question, "1" -> "6" for answer
+    # 3x3 matrices are "A" -> "H" for question, "1" -> "8" for answer
     def Solve(self,problem):
         print 'Begin ' + problem.name
 
+        # Is this a 2x2 or 3x3 problem
+        is3x3 = len(problem.figures) > 9 # 2x2s have 9 images: 3 for the 2x2 and 6 MCs
 
-        imgA = self.OpenImage(problem,'A')
-        imgB = self.OpenImage(problem,'B')
-        imgC = self.OpenImage(problem,'C')
+        if not is3x3:
+            imgA = self.OpenImage(problem,'A')
+            imgB = self.OpenImage(problem,'B')
+            imgC = self.OpenImage(problem,'C')
 
-        problemImagesBlurred = [imgA, imgB, imgC]
+            problemImagesBlurred = [imgA, imgB, imgC]
 
-        imgARaw = self.OpenImage(problem,'A', False)
-        imgBRaw = self.OpenImage(problem,'B', False)
-        imgCRaw = self.OpenImage(problem,'C', False)
+            imgARaw = self.OpenImage(problem,'A', False)
+            imgBRaw = self.OpenImage(problem,'B', False)
+            imgCRaw = self.OpenImage(problem,'C', False)
 
-        problemImagesRaw = [imgARaw, imgBRaw, imgCRaw]
+            problemImagesRaw = [imgARaw, imgBRaw, imgCRaw]
 
-        ### Run Test Suite
+            ####### Run 2x2 Test Suite ###################################################################################
 
-        # Result is tuple of confidence (float) and answer (int)
-        resultMirror = self.MirrorTest(problem, problemImagesBlurred, False)
-        resultFlip = self.FlipTest(problem, problemImagesBlurred, False)
-        resultBoolean = self.BooleanTest(problem, problemImagesBlurred, False)
-        resultFill = self.FillTest(problem, problemImagesRaw, False)
+            # Result is tuple of confidence (float) and answer (int)
+            resultMirror = self.MirrorTest(problem, problemImagesBlurred, False)
+            resultFlip = self.FlipTest(problem, problemImagesBlurred, False)
+            resultBoolean = self.BooleanTest(problem, problemImagesBlurred, False)
+            resultFill = self.FillTest(problem, problemImagesRaw, False)
 
-        # Set Add/remove Object as best choice
-        bestRelationshipConfidence = resultBoolean[0]
-        bestAnswerConfidence = resultBoolean[1][0]
-        bestAnswer = resultBoolean[1][1]
-        chosenTransform = 'boolean'
+            # Set Add/remove Object as best choice
+            bestRelationshipConfidence = resultBoolean[0]
+            bestAnswerConfidence = resultBoolean[1][0]
+            bestAnswer = resultBoolean[1][1]
+            chosenTransform = 'boolean'
 
-        # Set Mirror as best choice
-        if resultMirror[0] >= bestRelationshipConfidence and resultMirror[1][0] >= bestAnswerConfidence:
-            bestRelationshipConfidence = resultMirror[0]
-            bestAnswerConfidence = resultMirror[1][0]
-            bestAnswer = resultMirror[1][1]
-            chosenTransform = 'mirroring'
+            # Set Mirror as best choice
+            if resultMirror[0] >= bestRelationshipConfidence and resultMirror[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultMirror[0]
+                bestAnswerConfidence = resultMirror[1][0]
+                bestAnswer = resultMirror[1][1]
+                chosenTransform = 'mirroring'
 
-        # Set Flip as best choice
-        if resultFlip[0] >= bestRelationshipConfidence and resultFlip[1][0] >= bestAnswerConfidence:
-            bestRelationshipConfidence = resultFlip[0]
-            bestAnswerConfidence = resultFlip[1][0]
-            bestAnswer = resultFlip[1][1]
-            chosenTransform = 'flipping'
+            # Set Flip as best choice
+            if resultFlip[0] >= bestRelationshipConfidence and resultFlip[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultFlip[0]
+                bestAnswerConfidence = resultFlip[1][0]
+                bestAnswer = resultFlip[1][1]
+                chosenTransform = 'flipping'
 
-        # Set Fill as best choice
-        if resultFill[0] >= bestRelationshipConfidence and resultFill[1][0] >= bestAnswerConfidence:
-            bestRelationshipConfidence = resultFill[0]
-            bestAnswerConfidence = resultFill[1][0]
-            bestAnswer = resultFill[1][1]
-            chosenTransform = 'filling'
+            # Set Fill as best choice
+            if resultFill[0] >= bestRelationshipConfidence and resultFill[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultFill[0]
+                bestAnswerConfidence = resultFill[1][0]
+                bestAnswer = resultFill[1][1]
+                chosenTransform = 'filling'
 
-        print 'Answer is', bestAnswer, 'with confidence', bestAnswerConfidence, 'solved by', chosenTransform
-        return bestAnswer
+            print 'Answer is', bestAnswer, 'with confidence', bestAnswerConfidence, 'solved by', chosenTransform
+            return bestAnswer
+        else:
+            imgA = self.OpenImage(problem, 'A')
+            imgB = self.OpenImage(problem, 'B')
+            imgC = self.OpenImage(problem, 'C')
+            imgD = self.OpenImage(problem, 'D')
+            imgE = self.OpenImage(problem, 'E')
+            imgF = self.OpenImage(problem, 'F')
+            imgG = self.OpenImage(problem, 'G')
+            imgH = self.OpenImage(problem, 'H')
+
+            problemImagesBlurred = [imgA, imgB, imgC, imgD, imgE, imgF, imgG, imgH]
+
+            imgARaw = self.OpenImage(problem, 'A', False)
+            imgBRaw = self.OpenImage(problem, 'B', False)
+            imgCRaw = self.OpenImage(problem, 'C', False)
+            imgDRaw = self.OpenImage(problem, 'D', False)
+            imgERaw = self.OpenImage(problem, 'E', False)
+            imgFRaw = self.OpenImage(problem, 'F', False)
+            imgGRaw = self.OpenImage(problem, 'G', False)
+            imgHRaw = self.OpenImage(problem, 'H', False)
+
+            problemImagesRaw = [imgARaw, imgBRaw, imgCRaw, imgDRaw, imgERaw, imgFRaw, imgGRaw, imgHRaw]
+
+            ####### Run 3x3 Test Suite ###################################################################################
+
+            return -1
