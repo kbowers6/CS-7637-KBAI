@@ -112,6 +112,42 @@ class Agent:
             counter += 1
         return (bestConfidence, bestAnswer)
 
+    # Tests no change as the transform
+    def NoChangeTest_3x3(self, problem, problemImages, showImage):
+        print 'no change...'
+        A = problemImages[0]
+        B = problemImages[1]
+        C = problemImages[2]
+        G = problemImages[6]
+        H = problemImages[7]
+
+        # Test A -> C are the same or A -> G are the same
+        confidenceAB = self.MeasureImageSimilarityNumpy(A, B, showImage)
+        confidenceBC = self.MeasureImageSimilarityNumpy(B, C, showImage)
+        confidenceGH = self.MeasureImageSimilarityNumpy(G, H, showImage)
+
+        confidenceAG = self.MeasureImageSimilarityNumpy(A, G, showImage)
+        confidenceBH = self.MeasureImageSimilarityNumpy(B, H, showImage)
+
+        confidenceHorizontal = min(confidenceAB,confidenceBC,confidenceGH)
+        confidenceVertical = min(confidenceAG, confidenceBH)
+
+        if True:
+            print 'conf LR = ', confidenceHorizontal
+            print 'conf TB = ', confidenceVertical
+
+        # Not good enough confidence
+        #@if max(confidenceAC, confidenceAB) < self.confidenceThreshold:
+          #  return (max(confidenceAC, confidenceAB), (max(confidenceAC, confidenceAB), -1))
+
+        # transformedImage is the resulting image from mirroring either C (for C->D) or B (for B->D)
+        if confidenceHorizontal >= confidenceVertical:
+            transformedImage = H
+        else:
+            transformedImage = problemImages[5] # F
+
+        return (max(confidenceHorizontal, confidenceVertical), self.FindBestAnswer(problem, transformedImage, showImage))
+
     # Tests mirror as the transform (left to right mirror)
     def MirrorTest(self, problem, problemImages, showImage):
         print 'mirror...'
@@ -341,4 +377,9 @@ class Agent:
 
             ####### Run 3x3 Test Suite ###################################################################################
 
-            return -1
+            # Result is tuple of confidence (float) and answer (int)
+            resultNoChange = self.NoChangeTest_3x3(problem, problemImagesBlurred, False)
+
+
+
+            return resultNoChange[1][1]
