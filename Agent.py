@@ -24,7 +24,8 @@ class Agent:
     # main().
     def __init__(self):
         self.MCimageNames = ['1', '2', '3', '4', '5', '6']
-        self.problemImageNames = ['A', 'B', 'C']
+        self.MCimageNames3x3 = ['1', '2', '3', '4', '5', '6', '7', '8']
+        #self.problemImageNames = ['A', 'B', 'C']
         self.confidenceThreshold = .70
 
     def MeasureImageSimilarityNumpy(self, imgA, imgB, showImage):
@@ -53,9 +54,14 @@ class Agent:
 
         return image
 
+    def GetObjectPixelCount(self, image, whiteness=250):
+        npImage = np.matrix(image).astype(float)
+        pixelCount = (npImage > whiteness).sum()
+        return pixelCount
+
     # Loops the MC options and picks the one with highest confidence compared to the generatedImage
     # Returns tuple of confidence and the best Answer
-    def FindBestAnswer(self, problem, generatedImage, showImage):
+    def FindBestAnswer(self, problem, generatedImage, showImage, is3x3=False):
         isFirst = True
         bestConfidence = 0.0
         bestAnswer = 0
@@ -64,7 +70,11 @@ class Agent:
         # generatedImage.show()
         # input("Press Enter to continue...")
         # Loop all the MC answers and pick the most confident
-        for imageName in self.MCimageNames:
+        if is3x3:
+            imageSet = self.MCimageNames3x3
+        else:
+            imageSet = self.MCimageNames
+        for imageName in imageSet:
             image = self.OpenImage(problem, imageName)
 
             similarity = self.MeasureImageSimilarityNumpy(generatedImage, image, showImage)
@@ -84,31 +94,36 @@ class Agent:
 
     # Loops the MC options and picks the one with lowest difference compared to the sumOfPixels
     # Returns tuple of confidence and the best Answer
-    def FindBestSumAnswer(self, problem, sumOfPixels, showImage, threshold= 200):
+    def FindBestSumAnswer(self, problem, sumOfPixels, showImage, threshold= 200, is3x3=False, whiteness=250):
         isFirst = True
         bestConfidence = 0.0
         bestAnswer = 0
 
         counter = 1
         # Loop all the MC answers and pick the most confident
-        for imageName in self.MCimageNames:
+        if is3x3:
+            imageSet = self.MCimageNames3x3
+        else:
+            imageSet = self.MCimageNames
+        for imageName in imageSet:
             image = self.OpenImage(problem, imageName, False)
 
             npImage = np.matrix(image).astype(float)
-            sumPixelsImage = (npImage > 250).sum() # sums all the whitish pixels
+            sumPixelsImage = (npImage > whiteness).sum() # sums all the whitish pixels
 
             diffCount = abs(sumOfPixels - sumPixelsImage)
 
             print 'Answer', counter, 'has diff of', diffCount, 'pixels'
 
-            if isFirst:
-                isFirst = False
-                bestAnswer = counter
-                bestConfidence = diffCount
-            else:
-                if diffCount < bestConfidence:
+            if diffCount < threshold:
+                if isFirst:
+                    isFirst = False
                     bestAnswer = counter
                     bestConfidence = diffCount
+                else:
+                    if diffCount < bestConfidence:
+                        bestAnswer = counter
+                        bestConfidence = diffCount
             counter += 1
         return (bestConfidence, bestAnswer)
 
@@ -136,17 +151,58 @@ class Agent:
             print 'conf LR = ', confidenceHorizontal
             print 'conf TB = ', confidenceVertical
 
-        # Not good enough confidence
-        #@if max(confidenceAC, confidenceAB) < self.confidenceThreshold:
-          #  return (max(confidenceAC, confidenceAB), (max(confidenceAC, confidenceAB), -1))
-
         # transformedImage is the resulting image from mirroring either C (for C->D) or B (for B->D)
         if confidenceHorizontal >= confidenceVertical:
             transformedImage = H
         else:
             transformedImage = problemImages[5] # F
 
-        return (max(confidenceHorizontal, confidenceVertical), self.FindBestAnswer(problem, transformedImage, showImage))
+        return max(confidenceHorizontal, confidenceVertical), self.FindBestAnswer(problem, transformedImage, showImage, is3x3=True)
+
+    # Tests no change as the transform
+    def WallDoublingPixelsTest_3x3(self, problem, problemImages, showImage):
+        print 'wall doubling...'
+        A = problemImages[0]
+        B = problemImages[1]
+        C = problemImages[2]
+
+        D = problemImages[3]
+        F = problemImages[5]
+
+        G = problemImages[6]
+        H = problemImages[7]
+
+        # Get pixel counts for all images
+        sumA = self.GetObjectPixelCount(A)
+        sumB = self.GetObjectPixelCount(B)
+        sumC = self.GetObjectPixelCount(C)
+        sumD = self.GetObjectPixelCount(D)
+        sumF = self.GetObjectPixelCount(F)
+        sumG = self.GetObjectPixelCount(G)
+        sumH = self.GetObjectPixelCount(H)
+
+        # Test horizontal wall doubling
+        threshold = 200
+        confidenceHorizontal = 0.0
+        if (sumC - threshold < sumA*2 < sumC + threshold) and (sumF - threshold < sumD*2 < sumF + threshold):
+            confidenceHorizontal = 1.0
+
+        # Test vertical wall doubling
+        confidenceVertical = 0.0
+        if (sumG - threshold < sumA * 2 < sumG + threshold) and (sumH - threshold < sumB * 2 < sumH + threshold):
+            confidenceVertical = 1.0
+
+        if True:
+            print 'conf LR = ', confidenceHorizontal
+            print 'conf TB = ', confidenceVertical
+
+        # transformedImage is the resulting image from mirroring either C (for C->D) or B (for B->D)
+        if confidenceHorizontal >= confidenceVertical:
+            targetSumPixels = sumG * 2
+        else:
+            targetSumPixels = sumC * 2
+
+        return max(confidenceHorizontal, confidenceVertical), self.FindBestSumAnswer(problem, targetSumPixels, showImage, threshold=threshold, is3x3=True)
 
     # Tests mirror as the transform (left to right mirror)
     def MirrorTest(self, problem, problemImages, showImage):
@@ -352,7 +408,8 @@ class Agent:
 
             print 'Answer is', bestAnswer, 'with confidence', bestAnswerConfidence, 'solved by', chosenTransform
             return bestAnswer
-        else:
+
+        else: # Run 3x3 Test Suite
             imgA = self.OpenImage(problem, 'A')
             imgB = self.OpenImage(problem, 'B')
             imgC = self.OpenImage(problem, 'C')
@@ -379,7 +436,20 @@ class Agent:
 
             # Result is tuple of confidence (float) and answer (int)
             resultNoChange = self.NoChangeTest_3x3(problem, problemImagesBlurred, False)
+            resultWallDoubling = self.WallDoublingPixelsTest_3x3(problem, problemImagesRaw, False)
 
+            # Set No Change as best choice
+            bestRelationshipConfidence = resultNoChange[0]
+            bestAnswerConfidence = resultNoChange[1][0]
+            bestAnswer = resultNoChange[1][1]
+            chosenTransform = 'no change'
 
+            # Set Fill as best choice
+            if resultWallDoubling[0] >= bestRelationshipConfidence and resultWallDoubling[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultWallDoubling[0]
+                bestAnswerConfidence = resultWallDoubling[1][0]
+                bestAnswer = resultWallDoubling[1][1]
+                chosenTransform = 'doubling'
 
-            return resultNoChange[1][1]
+            print 'Answer is', bestAnswer, 'with confidence', bestAnswerConfidence, 'solved by', chosenTransform
+            return bestAnswer
