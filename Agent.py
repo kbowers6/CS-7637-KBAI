@@ -176,29 +176,44 @@ class Agent:
 
         return max(confidenceHorizontal, confidenceVertical), self.FindBestSumAnswer(problem, targetSumPixels, showImage, threshold=threshold, is3x3=True, whiteness=whiteness)
 
-    # Tests entire flip as the transform
-    def EntireFlipLR_3x3(self, problem, problemImages, showImage):
+    # Tests entire flip as the transform, vertical and horizontal
+    def EntireFlip_3x3(self, problem, problemImages, showImage):
         print 'entire flip LR...'
         A = problemImages[0]
+        B = problemImages[1]
         C = problemImages[2]
 
         D = problemImages[3]
+        E = problemImages[4]
         F = problemImages[5]
 
         G = problemImages[6]
-
-        mirrorA = PIL.ImageOps.mirror(A)
-        mirrorD = PIL.ImageOps.mirror(D)
+        H = problemImages[7]
 
         # Test horizontal relationship
+        mirrorA = PIL.ImageOps.mirror(A)
+        mirrorD = PIL.ImageOps.mirror(D)
         confidenceAC = self.MeasureImageSimilarityNumpy(mirrorA, C, showImage)
         confidenceDF = self.MeasureImageSimilarityNumpy(mirrorD, F, showImage)
 
+        # Test vertical relationship
+        flipA = PIL.ImageOps.flip(A)
+        flipB = PIL.ImageOps.flip(B)
+        confidenceAG = self.MeasureImageSimilarityNumpy(flipA, G, showImage)
+        confidenceBH = self.MeasureImageSimilarityNumpy(flipB, H, showImage)
+
         print 'conf LR = ', confidenceAC, confidenceDF
+        print 'conf TB = ', confidenceAG, confidenceBH
 
-        targetImage = PIL.ImageOps.mirror(G)
+        # Get the more confident relationship direction
+        if min(confidenceAC, confidenceDF) > min(confidenceAG, confidenceBH): # horizontal is better
+            targetImage = PIL.ImageOps.mirror(G)
+            relationshipConfidence = min(confidenceAC, confidenceDF)
+        else: # vertical is better
+            targetImage = PIL.ImageOps.flip(C)
+            relationshipConfidence = min(confidenceAG, confidenceBH)
 
-        return min(confidenceAC, confidenceDF), self.FindBestAnswer(problem, targetImage, showImage, is3x3=True)
+        return relationshipConfidence, self.FindBestAnswer(problem, targetImage, showImage, is3x3=True)
 
     # Tests no change as the transform
     def WallDoublingPixelsTest_3x3(self, problem, problemImages, showImage):
@@ -478,7 +493,7 @@ class Agent:
             # Result is tuple of confidence (float) and answer (int)
             resultWallDoubling = self.WallDoublingPixelsTest_3x3(problem, problemImagesRaw, False)
             resultPixelCountDiffAdd = self.PixelCountDiffAddTest_3x3(problem, problemImagesRaw, False)
-            resultEntireFlip = self.EntireFlipLR_3x3(problem, problemImagesBlurred, False)
+            resultEntireFlip = self.EntireFlip_3x3(problem, problemImagesBlurred, False)
 
             # Set Skip as best choice
             bestRelationshipConfidence = .50
