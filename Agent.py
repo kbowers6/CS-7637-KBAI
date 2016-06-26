@@ -97,7 +97,7 @@ class Agent:
     def FindBestSumAnswer(self, problem, sumOfPixels, showImage, threshold= 200, is3x3=False, whiteness=250):
         isFirst = True
         bestConfidence = 0.0
-        bestAnswer = 0
+        bestAnswer = -1
 
         counter = 1
         # Loop all the MC answers and pick the most confident
@@ -106,14 +106,14 @@ class Agent:
         else:
             imageSet = self.MCimageNames
         for imageName in imageSet:
-            image = self.OpenImage(problem, imageName, False)
+            image = self.OpenImage(problem, imageName, blurred=False)
 
             npImage = np.matrix(image).astype(float)
             sumPixelsImage = (npImage > whiteness).sum() # sums all the whitish pixels
 
             diffCount = abs(sumOfPixels - sumPixelsImage)
 
-            print 'Answer', counter, 'has diff of', diffCount, 'pixels'
+            print 'Answer', counter, 'has diff of', diffCount, 'pixels (', sumPixelsImage,')'
 
             if diffCount < threshold:
                 if isFirst:
@@ -127,37 +127,54 @@ class Agent:
             counter += 1
         return (bestConfidence, bestAnswer)
 
-    # Tests no change as the transform
-    def NoChangeTest_3x3(self, problem, problemImages, showImage):
-        print 'no change...'
+    # Tests pixel count diff add as the transform: (B - A) + B
+    def PixelCountDiffAddTest_3x3(self, problem, problemImages, showImage):
+        whiteness = 200
+        print 'diff add...'
         A = problemImages[0]
         B = problemImages[1]
         C = problemImages[2]
+
+        D = problemImages[3]
+        E = problemImages[4]
+        F = problemImages[5]
+
         G = problemImages[6]
         H = problemImages[7]
 
-        # Test A -> C are the same or A -> G are the same
-        confidenceAB = self.MeasureImageSimilarityNumpy(A, B, showImage)
-        confidenceBC = self.MeasureImageSimilarityNumpy(B, C, showImage)
-        confidenceGH = self.MeasureImageSimilarityNumpy(G, H, showImage)
+        # Get pixel counts for all images
+        sumA = self.GetObjectPixelCount(A, whiteness=whiteness)
+        sumB = self.GetObjectPixelCount(B, whiteness=whiteness)
+        sumC = self.GetObjectPixelCount(C, whiteness=whiteness)
+        sumD = self.GetObjectPixelCount(D, whiteness=whiteness)
+        sumE = self.GetObjectPixelCount(E, whiteness=whiteness)
+        sumF = self.GetObjectPixelCount(F, whiteness=whiteness)
+        sumG = self.GetObjectPixelCount(G, whiteness=whiteness)
+        sumH = self.GetObjectPixelCount(H, whiteness=whiteness)
 
-        confidenceAG = self.MeasureImageSimilarityNumpy(A, G, showImage)
-        confidenceBH = self.MeasureImageSimilarityNumpy(B, H, showImage)
+        # Test horizontal relationship
+        threshold = 300
+        confidenceHorizontal = 0.0
+        if (sumC - threshold < (sumB - sumA) + sumB < sumC + threshold) and (sumF - threshold < (sumE - sumD) + sumE < sumF + threshold):
+            confidenceHorizontal = 1.0
 
-        confidenceHorizontal = min(confidenceAB,confidenceBC,confidenceGH)
-        confidenceVertical = min(confidenceAG, confidenceBH)
+        # Test vertical relationship
+        confidenceVertical = 0.0
+        if (sumG - threshold < (sumD - sumA) + sumD < sumG + threshold) and (sumH - threshold < (sumE - sumB) + sumE < sumH + threshold):
+            confidenceVertical = 1.0
 
         if True:
             print 'conf LR = ', confidenceHorizontal
             print 'conf TB = ', confidenceVertical
 
-        # transformedImage is the resulting image from mirroring either C (for C->D) or B (for B->D)
+        print 'sumG', sumG, 'sumH', sumH
+        # transformedImage is the resulting image from transforming either C (for C->D) or B (for B->D)
         if confidenceHorizontal >= confidenceVertical:
-            transformedImage = H
+            targetSumPixels = (sumH - sumG) + sumH
         else:
-            transformedImage = problemImages[5] # F
+            targetSumPixels = (sumF - sumC) + sumF
 
-        return max(confidenceHorizontal, confidenceVertical), self.FindBestAnswer(problem, transformedImage, showImage, is3x3=True)
+        return max(confidenceHorizontal, confidenceVertical), self.FindBestSumAnswer(problem, targetSumPixels, showImage, threshold=threshold, is3x3=True, whiteness=whiteness)
 
     # Tests no change as the transform
     def WallDoublingPixelsTest_3x3(self, problem, problemImages, showImage):
@@ -353,7 +370,7 @@ class Agent:
     # problem.figures is dictionary of the question. "A" -> "C" for question, "1" -> "6" for answer
     # 3x3 matrices are "A" -> "H" for question, "1" -> "8" for answer
     def Solve(self,problem):
-        print 'Begin ' + problem.name
+        print '\nBegin ' + problem.name + ' --------------------------------------------'
 
         # Is this a 2x2 or 3x3 problem
         is3x3 = len(problem.figures) > 9 # 2x2s have 9 images: 3 for the 2x2 and 6 MCs
@@ -421,35 +438,43 @@ class Agent:
 
             problemImagesBlurred = [imgA, imgB, imgC, imgD, imgE, imgF, imgG, imgH]
 
-            imgARaw = self.OpenImage(problem, 'A', False)
-            imgBRaw = self.OpenImage(problem, 'B', False)
-            imgCRaw = self.OpenImage(problem, 'C', False)
-            imgDRaw = self.OpenImage(problem, 'D', False)
-            imgERaw = self.OpenImage(problem, 'E', False)
-            imgFRaw = self.OpenImage(problem, 'F', False)
-            imgGRaw = self.OpenImage(problem, 'G', False)
-            imgHRaw = self.OpenImage(problem, 'H', False)
+            imgARaw = self.OpenImage(problem, 'A', blurred=False)
+            imgBRaw = self.OpenImage(problem, 'B', blurred=False)
+            imgCRaw = self.OpenImage(problem, 'C', blurred=False)
+            imgDRaw = self.OpenImage(problem, 'D', blurred=False)
+            imgERaw = self.OpenImage(problem, 'E', blurred=False)
+            imgFRaw = self.OpenImage(problem, 'F', blurred=False)
+            imgGRaw = self.OpenImage(problem, 'G', blurred=False)
+            imgHRaw = self.OpenImage(problem, 'H', blurred=False)
 
             problemImagesRaw = [imgARaw, imgBRaw, imgCRaw, imgDRaw, imgERaw, imgFRaw, imgGRaw, imgHRaw]
 
             ####### Run 3x3 Test Suite ###################################################################################
 
             # Result is tuple of confidence (float) and answer (int)
-            resultNoChange = self.NoChangeTest_3x3(problem, problemImagesBlurred, False)
             resultWallDoubling = self.WallDoublingPixelsTest_3x3(problem, problemImagesRaw, False)
+            resultPixelCountDiffAdd = self.PixelCountDiffAddTest_3x3(problem, problemImagesRaw, False)
 
             # Set No Change as best choice
-            bestRelationshipConfidence = resultNoChange[0]
-            bestAnswerConfidence = resultNoChange[1][0]
-            bestAnswer = resultNoChange[1][1]
-            chosenTransform = 'no change'
+            bestRelationshipConfidence = .50
+            bestAnswerConfidence = 0.0
+            bestAnswer = -1
+            chosenTransform = 'skip'
 
-            # Set Fill as best choice
+            # Set Wall Doubling as best choice
             if resultWallDoubling[0] >= bestRelationshipConfidence and resultWallDoubling[1][0] >= bestAnswerConfidence:
                 bestRelationshipConfidence = resultWallDoubling[0]
                 bestAnswerConfidence = resultWallDoubling[1][0]
                 bestAnswer = resultWallDoubling[1][1]
                 chosenTransform = 'doubling'
 
-            print 'Answer is', bestAnswer, 'with confidence', bestAnswerConfidence, 'solved by', chosenTransform
+            # Set Diff Add as best choice
+            if resultPixelCountDiffAdd[0] >= bestRelationshipConfidence and resultPixelCountDiffAdd[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultPixelCountDiffAdd[0]
+                bestAnswerConfidence = resultPixelCountDiffAdd[1][0]
+                bestAnswer = resultPixelCountDiffAdd[1][1]
+                chosenTransform = 'diff add'
+
+            print resultPixelCountDiffAdd
+            print 'Answer is', bestAnswer, 'with answer confidence', bestAnswerConfidence, 'and relationship confidence', bestRelationshipConfidence, 'solved by', chosenTransform
             return bestAnswer
