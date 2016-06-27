@@ -127,6 +127,69 @@ class Agent:
             counter += 1
         return (bestConfidence, bestAnswer)
 
+    # splits the vertical halves of the image
+    def splitFlipImage(self, image):
+        width, height = image.size   # Get dimensions
+
+        # Flip the left vertical half
+        leftHalfleft = 0
+        leftHalftop = 0
+        leftHalfright = width/2
+        leftHalfbottom = height
+        leftHalfCropped = image.crop((leftHalfleft, leftHalftop, leftHalfright, leftHalfbottom))
+        leftHalfFlipped = PIL.ImageOps.mirror(leftHalfCropped)
+
+        # Flip the right vertical half
+        rightHalfleft = width/2
+        rightHalftop = 0
+        rightHalfright = width
+        rightHalfbottom = height
+        rightHalfCropped = image.crop((rightHalfleft, rightHalftop, rightHalfright, rightHalfbottom))
+        rightHalfFlipped = PIL.ImageOps.mirror(rightHalfCropped)
+
+        # Combine the two halves
+        newImage = Image.new('L', (width, height))
+        newImage.paste(leftHalfFlipped, (0,0))
+        newImage.paste(rightHalfFlipped, (rightHalfleft,0))
+
+        return newImage
+
+    # Tests flipping the vertical halves as the transform:
+    def SplitFlipTest_3x3(self, problem, problemImages, showImage):
+        print 'split flip...'
+        A = problemImages[0]
+        B = problemImages[1]
+        C = problemImages[2]
+
+        D = problemImages[3]
+        E = problemImages[4]
+        F = problemImages[5]
+
+        G = problemImages[6]
+        H = problemImages[7]
+
+        # Test horizontal relationship
+        confidenceHorizontal = 0.0
+        confidenceVertical = 0.0
+        splitFlipA = self.splitFlipImage(A)
+        splitFlipD = self.splitFlipImage(D)
+        confidenceAC = self.MeasureImageSimilarityNumpy(splitFlipA, C, showImage)
+        confidenceDF = self.MeasureImageSimilarityNumpy(splitFlipD, F, showImage)
+
+        print 'conf LR = ', confidenceAC, confidenceDF
+        #print 'conf TB = ', confidenceAG, confidenceBH
+
+        # Get the more confident relationship direction
+        #if min(confidenceAC, confidenceDF) > min(confidenceAG, confidenceBH): # horizontal is better
+        targetImage = self.splitFlipImage(G)
+        relationshipConfidence = min(confidenceAC, confidenceDF)
+
+        #else: # vertical is better
+        #    targetImage = PIL.ImageOps.flip(C)
+         #   relationshipConfidence = min(confidenceAG, confidenceBH)
+
+        return relationshipConfidence, self.FindBestAnswer(problem, targetImage, showImage, is3x3=True)
+
     # Tests pixel count diff add as the transform: (B - A) + B
     def PixelCountDiffAddTest_3x3(self, problem, problemImages, showImage):
         whiteness = 200
@@ -252,7 +315,7 @@ class Agent:
             print 'conf LR = ', confidenceHorizontal
             print 'conf TB = ', confidenceVertical
 
-        # transformedImage is the resulting image from mirroring either C (for C->D) or B (for B->D)
+        # transformedImage is the resulting image for the relationship
         if confidenceHorizontal >= confidenceVertical:
             targetSumPixels = sumG * 2
         else:
@@ -494,6 +557,7 @@ class Agent:
             resultWallDoubling = self.WallDoublingPixelsTest_3x3(problem, problemImagesRaw, False)
             resultPixelCountDiffAdd = self.PixelCountDiffAddTest_3x3(problem, problemImagesRaw, False)
             resultEntireFlip = self.EntireFlip_3x3(problem, problemImagesBlurred, False)
+            resultSplitFlip = self.SplitFlipTest_3x3(problem, problemImagesBlurred, False)
 
             # Set Skip as best choice
             bestRelationshipConfidence = .50
@@ -521,6 +585,13 @@ class Agent:
                 bestAnswerConfidence = resultEntireFlip[1][0]
                 bestAnswer = resultEntireFlip[1][1]
                 chosenTransform = 'entire flip'
+
+            # Set Split Flip as best choice
+            if resultSplitFlip[0] >= bestRelationshipConfidence and resultSplitFlip[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultSplitFlip[0]
+                bestAnswerConfidence = resultSplitFlip[1][0]
+                bestAnswer = resultSplitFlip[1][1]
+                chosenTransform = 'split flip'
 
             print resultPixelCountDiffAdd
             print 'Answer is', bestAnswer, 'with answer confidence', bestAnswerConfidence, 'and relationship confidence', bestRelationshipConfidence, 'solved by', chosenTransform
