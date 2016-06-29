@@ -64,7 +64,7 @@ class Agent:
     def FindBestAnswer(self, problem, generatedImage, showImage, is3x3=False):
         isFirst = True
         bestConfidence = 0.0
-        bestAnswer = 0
+        bestAnswer = -1
 
         counter = 1
         # generatedImage.show()
@@ -190,6 +190,39 @@ class Agent:
 
         return relationshipConfidence, self.FindBestAnswer(problem, targetImage, showImage, is3x3=True)
 
+    def imageOR(self, imageA, imageB):
+        imgOR = PIL.ImageMath.eval("a | b", a=imageA, b=imageB)
+        return imgOR
+
+    # Tests ORing the left and top image as the transform:
+    def LeftTopOrTest_3x3(self, problem, problemImages, showImage):
+        print 'Left Top OR...'
+        A = problemImages[0]
+        B = problemImages[1]
+        C = problemImages[2]
+
+        D = problemImages[3]
+        E = problemImages[4]
+        F = problemImages[5]
+
+        G = problemImages[6]
+        H = problemImages[7]
+
+        # Test horizontal relationship
+        orBD = self.imageOR(B,D)
+        orEC = self.imageOR(E,C)
+        orEG = self.imageOR(E,G)
+        confidenceBD = self.MeasureImageSimilarityNumpy(orBD, E, showImage)
+        confidenceEC = self.MeasureImageSimilarityNumpy(orEC, F, showImage)
+        confidenceEG = self.MeasureImageSimilarityNumpy(orEG, H, showImage)
+
+        print 'conf = ', confidenceBD, confidenceEC, confidenceEG
+
+        relationshipConfidence = min(confidenceBD, confidenceEC, confidenceEG)
+        targetImage = self.imageOR(F,H)
+
+        return relationshipConfidence, self.FindBestAnswer(problem, targetImage, showImage, is3x3=True)
+
     # Tests pixel count diff add as the transform: (B - A) + B
     def PixelCountDiffAddTest_3x3(self, problem, problemImages, showImage):
         whiteness = 200
@@ -230,7 +263,6 @@ class Agent:
             print 'conf LR = ', confidenceHorizontal
             print 'conf TB = ', confidenceVertical
 
-        print 'sumG', sumG, 'sumH', sumH
         # transformedImage is the resulting image from transforming either C (for C->D) or B (for B->D)
         if confidenceHorizontal >= confidenceVertical:
             targetSumPixels = (sumH - sumG) + sumH
@@ -558,6 +590,7 @@ class Agent:
             resultPixelCountDiffAdd = self.PixelCountDiffAddTest_3x3(problem, problemImagesRaw, False)
             resultEntireFlip = self.EntireFlip_3x3(problem, problemImagesBlurred, False)
             resultSplitFlip = self.SplitFlipTest_3x3(problem, problemImagesBlurred, False)
+            resultLeftTopOr = self.LeftTopOrTest_3x3(problem, problemImagesBlurred, False)
 
             # Set Skip as best choice
             bestRelationshipConfidence = .50
@@ -566,33 +599,39 @@ class Agent:
             chosenTransform = 'skip'
 
             # Set Wall Doubling as best choice
-            if resultWallDoubling[0] >= bestRelationshipConfidence and resultWallDoubling[1][0] >= bestAnswerConfidence:
+            if resultWallDoubling[0] > bestRelationshipConfidence and resultWallDoubling[1][0] >= bestAnswerConfidence:
                 bestRelationshipConfidence = resultWallDoubling[0]
                 bestAnswerConfidence = resultWallDoubling[1][0]
                 bestAnswer = resultWallDoubling[1][1]
                 chosenTransform = 'doubling'
 
+            # Set Left Top OR as best choice
+            if resultLeftTopOr[0] > bestRelationshipConfidence and resultLeftTopOr[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultLeftTopOr[0]
+                bestAnswerConfidence = resultLeftTopOr[1][0]
+                bestAnswer = resultLeftTopOr[1][1]
+                chosenTransform = 'left top OR'
+
             # Set Diff Add as best choice
-            if resultPixelCountDiffAdd[0] >= bestRelationshipConfidence and resultPixelCountDiffAdd[1][0] >= bestAnswerConfidence:
+            if resultPixelCountDiffAdd[0] > bestRelationshipConfidence and resultPixelCountDiffAdd[1][0] >= bestAnswerConfidence:
                 bestRelationshipConfidence = resultPixelCountDiffAdd[0]
                 bestAnswerConfidence = resultPixelCountDiffAdd[1][0]
                 bestAnswer = resultPixelCountDiffAdd[1][1]
                 chosenTransform = 'diff add'
 
             # Set Entire Flip as best choice
-            if resultEntireFlip[0] >= bestRelationshipConfidence and resultEntireFlip[1][0] >= bestAnswerConfidence:
+            if resultEntireFlip[0] > bestRelationshipConfidence and resultEntireFlip[1][0] >= bestAnswerConfidence:
                 bestRelationshipConfidence = resultEntireFlip[0]
                 bestAnswerConfidence = resultEntireFlip[1][0]
                 bestAnswer = resultEntireFlip[1][1]
                 chosenTransform = 'entire flip'
 
             # Set Split Flip as best choice
-            if resultSplitFlip[0] >= bestRelationshipConfidence and resultSplitFlip[1][0] >= bestAnswerConfidence:
+            if resultSplitFlip[0] > bestRelationshipConfidence and resultSplitFlip[1][0] >= bestAnswerConfidence:
                 bestRelationshipConfidence = resultSplitFlip[0]
                 bestAnswerConfidence = resultSplitFlip[1][0]
                 bestAnswer = resultSplitFlip[1][1]
                 chosenTransform = 'split flip'
 
-            print resultPixelCountDiffAdd
             print 'Answer is', bestAnswer, 'with answer confidence', bestAnswerConfidence, 'and relationship confidence', bestRelationshipConfidence, 'solved by', chosenTransform
             return bestAnswer
