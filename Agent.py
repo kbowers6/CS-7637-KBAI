@@ -223,6 +223,33 @@ class Agent:
 
         return relationshipConfidence, self.FindBestAnswer(problem, targetImage, showImage, is3x3=True)
 
+    # Tests ORing the left and top image as the transform:
+    def OrTest_3x3(self, problem, problemImages, showImage):
+        print 'OR...'
+        A = problemImages[0]
+        B = problemImages[1]
+        C = problemImages[2]
+
+        D = problemImages[3]
+        E = problemImages[4]
+        F = problemImages[5]
+
+        G = problemImages[6]
+        H = problemImages[7]
+
+        # Test horizontal relationship
+        orAB = self.imageOR(A,B)
+        orDE = self.imageOR(D,E)
+        confidenceBD = self.MeasureImageSimilarityNumpy(orAB, C, showImage)
+        confidenceEC = self.MeasureImageSimilarityNumpy(orDE, F, showImage)
+
+        print 'conf = ', confidenceBD, confidenceEC
+
+        relationshipConfidence = min(confidenceBD, confidenceEC)
+        targetImage = self.imageOR(G,H)
+
+        return relationshipConfidence, self.FindBestAnswer(problem, targetImage, showImage, is3x3=True)
+
     # Tests pixel count diff add as the transform: (B - A) + B
     def PixelCountDiffAddTest_3x3(self, problem, problemImages, showImage):
         whiteness = 200
@@ -591,6 +618,7 @@ class Agent:
             resultEntireFlip = self.EntireFlip_3x3(problem, problemImagesBlurred, False)
             resultSplitFlip = self.SplitFlipTest_3x3(problem, problemImagesBlurred, False)
             resultLeftTopOr = self.LeftTopOrTest_3x3(problem, problemImagesBlurred, False)
+            resultOr = self.OrTest_3x3(problem, problemImagesBlurred, False)
 
             # Set Skip as best choice
             bestRelationshipConfidence = .50
@@ -604,6 +632,13 @@ class Agent:
                 bestAnswerConfidence = resultWallDoubling[1][0]
                 bestAnswer = resultWallDoubling[1][1]
                 chosenTransform = 'doubling'
+
+            # Set OR as best choice
+            if resultOr[0] > bestRelationshipConfidence and resultOr[1][0] >= bestAnswerConfidence:
+                bestRelationshipConfidence = resultOr[0]
+                bestAnswerConfidence = resultOr[1][0]
+                bestAnswer = resultOr[1][1]
+                chosenTransform = 'OR'
 
             # Set Left Top OR as best choice
             if resultLeftTopOr[0] > bestRelationshipConfidence and resultLeftTopOr[1][0] >= bestAnswerConfidence:
